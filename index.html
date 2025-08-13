@@ -1,58 +1,218 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>剪辑师 ERP（MVP） Supabase/HTML 免打包</title>
-  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    :root {
+      --bg:#f7f7f9; --card:#fff; --text:#1b1f24; --muted:#6b7280; --primary:#2563eb;
+      --primary-600:#1d4ed8; --border:#e5e7eb; --ok:#16a34a; --warn:#b45309; --err:#dc2626;
+    }
+    *{box-sizing:border-box} body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial;
+      background:var(--bg);color:var(--text)}
+    .wrap{max-width:840px;margin:40px auto;padding:0 16px}
+    h1{font-size:28px;margin:0 0 16px}
+    .muted{color:var(--muted)}
+    .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 16px 18px}
+    .card h3{margin:0 0 8px;font-size:18px}
+    label{font-size:13px;color:var(--muted)}
+    input{width:100%;margin-top:6px;margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);
+      border-radius:10px;background:#fff}
+    button{appearance:none;border:0;border-radius:10px;background:var(--primary);color:#fff;
+      padding:10px 14px;cursor:pointer;font-weight:600}
+    button:hover{background:var(--primary-600)}
+    .row{display:flex;gap:10px;align-items:center}
+    .full{width:100%}
+    .msg{margin-top:8px;font-size:13px}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+    .bar{display:flex;justify-content:space-between;align-items:center;margin:18px 0}
+    .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;
+      padding:6px 10px;background:#fff;font-size:13px;color:var(--muted)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .hide{display:none}
+  </style>
+  <!-- Supabase JS CDN -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 </head>
 <body>
-  <h1>剪辑师 ERP（MVP） Supabase/HTML 免打包</h1>
-  <button id="loginBtn">登录</button>
-  <button id="signupBtn">注册新账号</button>
+  <div class="wrap">
+    <h1>剪辑师 ERP（MVP） <span class="muted">Supabase/HTML 免打包</span></h1>
+
+    <div class="bar">
+      <div class="pill">当前部署：<span class="mono">GitHub Pages</span></div>
+      <div id="sessionBox" class="pill">未登录</div>
+    </div>
+
+    <div class="grid">
+
+      <!-- 登录 -->
+      <div class="card">
+        <h3>登录</h3>
+        <label>邮箱</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com" />
+        <label>密码</label>
+        <input id="loginPass" type="password" placeholder="至少 6 位" />
+        <div class="row">
+          <button id="btnLogin">登录</button>
+          <button id="btnLogout" class="hide" style="background:#111827">退出</button>
+        </div>
+        <div id="loginMsg" class="msg"></div>
+      </div>
+
+      <!-- 注册 -->
+      <div class="card">
+        <h3>注册新账号</h3>
+        <p class="muted" style="margin-top:-4px">注册后自动登录（若开启“邮箱确认”，需先去邮箱点确认）。</p>
+        <label>邮箱</label>
+        <input id="signupEmail" type="email" placeholder="you@example.com" />
+        <label>密码</label>
+        <input id="signupPass" type="password" placeholder="至少 6 位" />
+        <div class="row">
+          <button id="btnSignup">注册</button>
+        </div>
+        <div id="signupMsg" class="msg"></div>
+      </div>
+
+      <!-- 账号信息 -->
+      <div class="card">
+        <h3>会话 / 账号信息</h3>
+        <div id="whoami" class="mono muted">未登录</div>
+        <div style="height:8px"></div>
+        <button id="btnRefresh">刷新会话</button>
+        <div id="infoMsg" class="msg"></div>
+      </div>
+
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>配置状态（只读）</h3>
+      <div class="mono muted" id="cfgUrl"></div>
+    </div>
+  </div>
 
   <script>
-    // === 配置 Supabase 项目 URL 和 公钥 ===
-    const SUPABASE_URL = 'https://lywlcsrndkturdpgvvnc.supabase.co';
-    const SUPABASE_ANON_KEY = '你的 anon 公钥放这里';
+    // 你项目的 Supabase 参数（已替换）
+    const SUPABASE_URL = "https://lywlcsrndkturdpgvvnc.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5d2xjc3JuZGt0dXJkcGd2dm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwOTg1NzUsImV4cCI6MjA3MDY3NDU3NX0.z49xmAaG1ciyMbGPPamoYfiAwFTP0PfX7__K3iRRkhs";
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 注册事件
-    document.getElementById('signupBtn').addEventListener('click', async () => {
-      const email = prompt('请输入邮箱:');
-      const password = prompt('请输入密码:');
-      if (!email || !password) return alert('邮箱和密码不能为空');
+    // 简易工具
+    const $ = (s)=>document.querySelector(s);
+    const show = (el, flag)=> el.classList.toggle('hide', !flag);
 
-      const { error } = await supabase.auth.signUp({
-        email,
-        password
-      });
+    // 元素
+    const loginEmail = $("#loginEmail");
+    const loginPass  = $("#loginPass");
+    const btnLogin   = $("#btnLogin");
+    const btnLogout  = $("#btnLogout");
+    const loginMsg   = $("#loginMsg");
 
-      if (error) {
-        alert('注册失败: ' + error.message);
+    const signupEmail= $("#signupEmail");
+    const signupPass = $("#signupPass");
+    const btnSignup  = $("#btnSignup");
+    const signupMsg  = $("#signupMsg");
+
+    const sessionBox = $("#sessionBox");
+    const whoami     = $("#whoami");
+    const infoMsg    = $("#infoMsg");
+    const btnRefresh = $("#btnRefresh");
+    const cfgUrl     = $("#cfgUrl");
+    cfgUrl.textContent = `SUPABASE_URL = ${SUPABASE_URL}`;
+
+    // 会话刷新 & UI 同步
+    async function syncSessionUI() {
+      const { data } = await client.auth.getSession();
+      const s = data.session;
+      if (s?.user) {
+        sessionBox.textContent = `已登录：${s.user.email}`;
+        whoami.textContent = JSON.stringify({ id: s.user.id, email: s.user.email }, null, 2);
+        show(btnLogout, true);
       } else {
-        alert('注册成功，请查收确认邮件');
+        sessionBox.textContent = "未登录";
+        whoami.textContent = "未登录";
+        show(btnLogout, false);
       }
-    });
+    }
 
-    // 登录事件
-    document.getElementById('loginBtn').addEventListener('click', async () => {
-      const email = prompt('请输入邮箱:');
-      const password = prompt('请输入密码:');
-      if (!email || !password) return alert('邮箱和密码不能为空');
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        alert('登录失败: ' + error.message);
-      } else {
-        alert('登录成功');
+    // 登录
+    btnLogin.onclick = async () => {
+      loginMsg.textContent = "";
+      try {
+        const email = loginEmail.value.trim();
+        const pass  = loginPass.value.trim();
+        if (!email || !pass) {
+          loginMsg.innerHTML = "<span class='err'>请输入邮箱和密码</span>";
+          return;
+        }
+        const { data, error } = await client.auth.signInWithPassword({ email, password: pass });
+        if (error) {
+          // 常见错误：Invalid login credentials
+          loginMsg.innerHTML = `<span class='err'>${error.message}</span>`;
+        } else {
+          loginMsg.innerHTML = "<span class='ok'>登录成功</span>";
+          await syncSessionUI();
+        }
+      } catch (e) {
+        loginMsg.innerHTML = `<span class='err'>${e.message}</span>`;
       }
-    });
+    };
+
+    // 退出
+    btnLogout.onclick = async () => {
+      await client.auth.signOut();
+      loginMsg.textContent = "";
+      signupMsg.textContent = "";
+      infoMsg.textContent = "";
+      await syncSessionUI();
+    };
+
+    // 注册
+    btnSignup.onclick = async () => {
+      signupMsg.textContent = "";
+      try {
+        const email = signupEmail.value.trim();
+        const pass  = signupPass.value.trim();
+        if (!email || !pass) {
+          signupMsg.innerHTML = "<span class='err'>请输入邮箱和密码</span>";
+          return;
+        }
+        const { data, error } = await client.auth.signUp({
+          email, password: pass,
+          options: {
+            emailRedirectTo: window.location.origin + window.location.pathname // 回到本站
+          }
+        });
+        if (error) {
+          signupMsg.innerHTML = `<span class='err'>${error.message}</span>`;
+          return;
+        }
+        // 如果你的 Supabase 开启 “Confirm email”：
+        if (data?.user && !data.session) {
+          signupMsg.innerHTML =
+            "<span class='warn'>注册成功，已发送确认邮件，请到邮箱点击确认后再登录。</span>";
+        } else {
+          signupMsg.innerHTML = "<span class='ok'>注册成功并已登录</span>";
+          await syncSessionUI();
+        }
+      } catch (e) {
+        signupMsg.innerHTML = `<span class='err'>${e.message}</span>`;
+      }
+    };
+
+    // 刷新会话
+    btnRefresh.onclick = async () => {
+      infoMsg.textContent = "";
+      await syncSessionUI();
+      infoMsg.innerHTML = "<span class='ok'>已刷新</span>";
+      setTimeout(()=> infoMsg.textContent = "", 1200);
+    };
+
+    // 首次进入同步一次
+    syncSessionUI();
   </script>
 </body>
 </html>
