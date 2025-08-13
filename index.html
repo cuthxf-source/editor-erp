@@ -1,20 +1,58 @@
-
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>剪辑师 ERP（MVP）</title>
-    <script src="https://unpkg.com/@supabase/supabase-js"></script>
-    <script>
-        const SUPABASE_URL = "https://lywlcsrndkturdpgvvnc.supabase.co";
-        const SUPABASE_ANON_KEY = "sb_publishable_7RTL_1teWRnrv8TQ8064kQ_fwD-SDAU";
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>剪辑师 ERP（MVP） Supabase/HTML 免打包</title>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
 </head>
 <body>
-    <h1>剪辑师 ERP（MVP）Supabase/HTML 免打包</h1>
-    <button onclick="alert('登录功能待实现')">登录</button>
-    <button onclick="alert('注册功能待实现')">注册新账号</button>
+  <h1>剪辑师 ERP（MVP） Supabase/HTML 免打包</h1>
+  <button id="loginBtn">登录</button>
+  <button id="signupBtn">注册新账号</button>
+
+  <script>
+    // === 配置 Supabase 项目 URL 和 公钥 ===
+    const SUPABASE_URL = 'https://lywlcsrndkturdpgvvnc.supabase.co';
+    const SUPABASE_ANON_KEY = '你的 anon 公钥放这里';
+
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 注册事件
+    document.getElementById('signupBtn').addEventListener('click', async () => {
+      const email = prompt('请输入邮箱:');
+      const password = prompt('请输入密码:');
+      if (!email || !password) return alert('邮箱和密码不能为空');
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) {
+        alert('注册失败: ' + error.message);
+      } else {
+        alert('注册成功，请查收确认邮件');
+      }
+    });
+
+    // 登录事件
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const email = prompt('请输入邮箱:');
+      const password = prompt('请输入密码:');
+      if (!email || !password) return alert('邮箱和密码不能为空');
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        alert('登录失败: ' + error.message);
+      } else {
+        alert('登录成功');
+      }
+    });
+  </script>
 </body>
 </html>
